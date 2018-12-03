@@ -1,4 +1,3 @@
-
 # coding: utf-8
 
 # Trades
@@ -70,7 +69,7 @@ import win32com.client
 import time
 from xlrd.compdoc import CompDocError
 
-#plotly.tools.set_credentials_file(username='mkf', api_key='crwJntc1jJsAdaHKiDPL')
+# plotly.tools.set_credentials_file(username='mkf', api_key='crwJntc1jJsAdaHKiDPL')
 
 
 # In[2]:
@@ -78,6 +77,7 @@ from xlrd.compdoc import CompDocError
 
 from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
 from plotly import tools
+
 init_notebook_mode(connected=True)
 
 
@@ -88,12 +88,13 @@ def fix_excel(trades_file):
     """Открывает и закрывает эксель файл при помощи VBA"""
     import win32com.client
 
-    xl=win32com.client.Dispatch("Excel.Application")
-    xl.Application.DisplayAlerts = False # disables Excel pop up message (for saving the file)
+    xl = win32com.client.Dispatch("Excel.Application")
+    xl.Application.DisplayAlerts = False  # disables Excel pop up message (for saving the file)
     wb = xl.Workbooks.Open(Filename=trades_file)
     wb.SaveAs(trades_file)
     wb.Close(True)
     xl.Application.DisplayAlerts = True
+
 
 # In[279]:
 
@@ -118,12 +119,13 @@ def normalise_formats(storage_of_executions):
     for date, tickers in storage_of_executions.items():
         for ticker, executions in tickers.items():
             new_df = executions[important_columns]
-            new_df.rename(columns={'B/S':'B_S', 'Order Id': 'Order_Id'}, inplace=True)
+            new_df.rename(columns={'B/S': 'B_S', 'Order Id': 'Order_Id'}, inplace=True)
             new_df.insert(0, 'Date_Time', pd.to_datetime((date + ' ' + new_df['Time']), dayfirst=False))
             new_df.insert(1, 'Ticker', ticker)
             new_df['BP_Used'] = new_df['Price'] * new_df['Qty']
-            new_df['Qty'] = new_df.apply(lambda x: x['Qty'] if new_df['B_S'][x.name] in ['B', 'C'] else -x['Qty'], axis=1)
-            #new_df.insert(6, 'Pos_Size', new_df['Qty'].cumsum())
+            new_df['Qty'] = new_df.apply(lambda x: x['Qty'] if new_df['B_S'][x.name] in ['B', 'C'] else -x['Qty'],
+                                         axis=1)
+            # new_df.insert(6, 'Pos_Size', new_df['Qty'].cumsum())
             new_df.reset_index(inplace=True)
             copy_storage_of_executions[date][ticker] = group_by_order_final(new_df)
     return copy_storage_of_executions
@@ -136,9 +138,9 @@ def group_by_order(executions):
     """Стандартная группирока при помощи groupby"""
     round_sum = lambda x: round(sum(x), 2)
     int_sum = lambda x: int(sum(x))
-    executions_by_order = executions.groupby('Order_Id').agg(({'index': 'first', 'Ticker' : 'first','Time' : 'first',
-                                                               'Date_Time' : 'first', 'B_S' : 'first', 'Qty' : sum,
-                                                               'Gross' : round_sum, 'Net' : round_sum, 'Route' : 'first',
+    executions_by_order = executions.groupby('Order_Id').agg(({'index': 'first', 'Ticker': 'first', 'Time': 'first',
+                                                               'Date_Time': 'first', 'B_S': 'first', 'Qty': sum,
+                                                               'Gross': round_sum, 'Net': round_sum, 'Route': 'first',
                                                                'BP_Used': 'sum'}))
 
     executions_by_order['Price'] = abs(round(executions_by_order['BP_Used'] / executions_by_order['Qty'], 3))
@@ -162,14 +164,12 @@ def group_by_order_final(execution):
 
             else:
                 new_group_by_orger = new_group_by_orger.append(group_by_order(one_group))
-                #one_group = pd.DataFrame(columns=execution.columns)
+                # one_group = pd.DataFrame(columns=execution.columns)
                 one_group = pd.DataFrame([execution.iloc[i]])
-
 
     new_group_by_orger = new_group_by_orger.append(group_by_order(one_group))
     new_group_by_orger.insert(6, 'Pos_Size', new_group_by_orger['Qty'].cumsum().apply(int))
     return new_group_by_orger
-
 
 
 # In[294]:
@@ -179,7 +179,7 @@ def preprocessing_trades(storage_of_executions):
     """парсинг Детейлд файла и вывод его в формат {дата : {тикер : датафррейм_екзекюшина}}"""
     file_parsing = {}
     excel_df = storage_of_executions
-    reindex = {a : b for a, b in zip(range(22), excel_df.iloc[2, :])} # вторая строка, 22 колонки в файле эксель
+    reindex = {a: b for a, b in zip(range(22), excel_df.iloc[2, :])}  # вторая строка, 22 колонки в файле эксель
     excel_df = excel_df.rename(columns=reindex)
 
     date_re = re.compile(r'\d{1,2}/\d{1,2}/\d{4}')
@@ -191,16 +191,16 @@ def preprocessing_trades(storage_of_executions):
     for i in range(len(excel_df)):
         if pd.notna(excel_df.iloc[i][0]):
             if options == False:
-                if re.match(date_re, excel_df.iloc[i][0]): #дата
+                if re.match(date_re, excel_df.iloc[i][0]):  # дата
                     date = excel_df.iloc[i][0]
                     file_parsing[date] = {}
                     continue
 
-                elif re.match(options_re, excel_df.iloc[i][0]): #опционы
+                elif re.match(options_re, excel_df.iloc[i][0]):  # опционы
                     options = True
                     continue
 
-                elif re.match(ticker_re, excel_df.iloc[i][0]): # если тикер
+                elif re.match(ticker_re, excel_df.iloc[i][0]):  # если тикер
                     ticker = re.match(ticker_re, excel_df.iloc[i][0])[1]
                     file_parsing[date][ticker] = pd.DataFrame()
                     continue
@@ -211,7 +211,7 @@ def preprocessing_trades(storage_of_executions):
                     columns = excel_df.iloc[i]
                     continue
 
-                elif re.match(time_re, excel_df.iloc[i][0]): #Время
+                elif re.match(time_re, excel_df.iloc[i][0]):  # Время
                     file_parsing[date][ticker] = file_parsing[date][ticker].append(excel_df.iloc[i, :])
 
             else:
@@ -235,8 +235,12 @@ def preprocessing_trades(storage_of_executions):
 def create_chart_df(chart_file):
     """Работа с есигнал чартом, нормализация форматов, создание нужных колонок"""
     chart_df = pd.read_csv(chart_file, sep=';', decimal=',', header=0)
-    chart_df[['Open', 'High', 'Low', 'Close', 'PC', 'Vol']] = chart_df[['Open', 'High', 'Low', 'Close', 'PC', 'Vol']].apply(lambda x:  round(x, 2))
-    chart_df.insert(0, 'Date_Time', pd.to_datetime((chart_df['Date'] + ' ' + chart_df['Time']), dayfirst=True))
+    chart_df[['Open', 'High', 'Low', 'Close', 'PC', 'Vol']] = chart_df[
+        ['Open', 'High', 'Low', 'Close', 'PC', 'Vol']].apply(lambda x: round(x, 2))
+    if 'Time' in chart_df:
+        chart_df.insert(0, 'Date_Time', pd.to_datetime((chart_df['Date'] + ' ' + chart_df['Time']), dayfirst=True))
+    else:
+        chart_df.insert(0, 'Date_Time', pd.to_datetime((chart_df['Date']), dayfirst=True))
     return chart_df
 
 
@@ -245,7 +249,7 @@ def create_chart_df(chart_file):
 
 def resampler(df, timeframe='5T'):
     """создание пятиминутного датафрейма"""
-    return df.resample(timeframe).apply({'Open': 'first', 'High' : 'max', 'Low':'min', 'Close':'last'})
+    return df.resample(timeframe).apply({'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last'})
 
 
 # In[255]:
@@ -265,107 +269,128 @@ def gap(needed_chart):
 
 def chart_with_needed_dates(chart_df, date_of_trade):
     return chart_df[(chart_df.Date_Time.apply(lambda x: x.date()) >= date_of_trade.date()) &
-      (chart_df.Date_Time.apply(lambda x: x.date()) < date_of_trade.date().replace(day=date_of_trade.day+1))]
+                    (chart_df.Date_Time.apply(lambda x: x.date()) < date_of_trade.date().replace(
+                        day=date_of_trade.day + 1))]
 
 
 # In[318]:
 
 
-def make_main_chart(needed_chart, drawing_trades, spy_needed_chart):
-
+def make_main_chart(needed_chart, daily_df, drawing_trades, spy_needed_chart, spy_daily):
     buy_executions = drawing_trades.loc[drawing_trades['B_S'].isin(['B', 'C'])]
     sell_executions = drawing_trades.loc[drawing_trades['B_S'].isin(['S', 'T'])]
+
+    decreasing = {"fillcolor": "rgb(227, 14, 0)",
+                  "line": {
+                      "color": "rgb(8, 7, 7)",
+                      "width": 1}}
+
+    increasing = {"fillcolor": "rgb(68, 171, 42)",
+                  "line": {
+                      "color": "rgb(5, 10, 8)",
+                      "width": 1}}
+
     chart_1m = go.Candlestick(x=needed_chart.Date_Time,
-                           open=needed_chart.Open,
-                           high=needed_chart.High,
-                           low=needed_chart.Low,
-                           close=needed_chart.Close,
-                          name=f"{buy_executions.Ticker[0]}_1m",
-                          decreasing = {"fillcolor": "rgb(227, 14, 0)",
-                                        "line": {
-                                          "color": "rgb(8, 7, 7)",
-                                          "width": 1}},
-                          increasing = {"fillcolor": "rgb(68, 171, 42)",
-                                        "line": {
-                                          "color": "rgb(5, 10, 8)",
-                                          "width": 1}},
-                          hoverinfo="x+y")
+                              open=needed_chart.Open,
+                              high=needed_chart.High,
+                              low=needed_chart.Low,
+                              close=needed_chart.Close,
+                              name=f"{buy_executions.Ticker[0]}_1m",
+                              decreasing=decreasing,
+                              increasing=increasing,
+                              hoverinfo="x+y",
+                              xaxis='x10',
+                              yaxis='y10')
+
     chart_resampled_to5m = resampler(needed_chart.set_index('Date_Time'))
+
     chart_5m = go.Candlestick(x=chart_resampled_to5m.index,
-                           open=chart_resampled_to5m.Open,
-                           high=chart_resampled_to5m.High,
-                           low=chart_resampled_to5m.Low,
-                           close=chart_resampled_to5m.Close,
-                          name=f"{buy_executions.Ticker[0]}_5m",
-                          decreasing = {"fillcolor": "rgb(227, 14, 0)",
-                                        "line": {
-                                          "color": "rgb(8, 7, 7)",
-                                          "width": 1}},
-                          increasing = {"fillcolor": "rgb(68, 171, 42)",
-                                        "line": {
-                                          "color": "rgb(5, 10, 8)",
-                                          "width": 1}},
-                          hoverinfo="x+y", visible="legendonly", yaxis='y')
+                              open=chart_resampled_to5m.Open,
+                              high=chart_resampled_to5m.High,
+                              low=chart_resampled_to5m.Low,
+                              close=chart_resampled_to5m.Close,
+                              name=f"{buy_executions.Ticker[0]}_5m",
+                              decreasing=decreasing,
+                              increasing=increasing,
+                              hoverinfo="x+y", visible="legendonly", yaxis='y10',
+                              xaxis='x10')
+
+    daily_chart = go.Candlestick(x=daily_df.Date_Time,
+                                 open=daily_df.Open,
+                                 high=daily_df.High,
+                                 low=daily_df.Low,
+                                 close=daily_df.Close,
+                                 name=f"{buy_executions.Ticker[0]}_daily",
+                                 decreasing=decreasing,
+                                 increasing=increasing,
+                                 yaxis='y6',
+                                 xaxis='x1')
+
+    spy_daily_chart = go.Candlestick(x=spy_daily.Date_Time,
+                                     open=spy_daily.Open,
+                                     high=spy_daily.High,
+                                     low=spy_daily.Low,
+                                     close=spy_daily.Close,
+                                     name=f"SPY_daily",
+                                     decreasing=decreasing,
+                                     increasing=increasing,
+                                     yaxis='y7',
+                                     xaxis='x1')
 
     spy_chart_candlestick = go.Candlestick(x=spy_needed_chart.Date_Time,
-                           open=spy_needed_chart.Open,
-                           high=spy_needed_chart.High,
-                           low=spy_needed_chart.Low,
-                           close=spy_needed_chart.Close,
-                          name='SPY',
-                          decreasing = {"fillcolor": "rgb(227, 14, 0)",
-                                        "line": {
-                                          "color": "rgb(8, 7, 7)",
-                                          "width": 1}},
-                          increasing = {"fillcolor": "rgb(68, 171, 42)",
-                                        "line": {
-                                          "color": "rgb(5, 10, 8)",
-                                          "width": 1}},
-                          hoverinfo="x+y", xaxis='x', yaxis='y3')
-
-    #spy_line = go.Line(x=spy_needed_chart.Date_Time, y=spy_needed_chart.Close, name="SPY_line", xaxis='x', yaxis='y4')
+                                           open=spy_needed_chart.Open,
+                                           high=spy_needed_chart.High,
+                                           low=spy_needed_chart.Low,
+                                           close=spy_needed_chart.Close,
+                                           name='SPY_intraday',
+                                           decreasing=decreasing,
+                                           increasing=increasing,
+                                           hoverinfo="x+y", xaxis='x10', yaxis='y2')
 
     text_lambda = lambda x: [f'{i.B_S}: {int(i.Qty)}, Pos_Size: {i.Pos_Size}' for i in x.itertuples()]
 
     buy_trace = go.Scatter(x=buy_executions.Date_Time, y=buy_executions.Price, mode='markers', name='Buy',
-                           marker = {"color": "rgb(103, 228, 97)",
-                                     "line": {"width": 1},
-                                     "size": 8},
+                           marker={"color": "rgb(103, 228, 97)",
+                                   "line": {"width": 1},
+                                   "size": 8},
                            text=text_lambda(buy_executions),
-                           hoverinfo="y+text")
+                           hoverinfo="y+text", xaxis='x10', yaxis='y10')
 
     sell_trace = go.Scatter(x=sell_executions.Date_Time, y=sell_executions.Price, mode='markers', name='Sell',
                             marker={
-                                   "color": "rgb(235, 180, 12)",
-                                   "line": {"width": 1},
-                                   "size": 8},
-                            yaxis= "y",
+                                "color": "rgb(235, 180, 12)",
+                                "line": {"width": 1},
+                                "size": 8},
                             text=text_lambda(sell_executions),
-                            hoverinfo="y+text")
+                            hoverinfo="y+text", xaxis='x10', yaxis='y10')
 
     PH = go.Scatter(x=needed_chart.Date_Time, y=needed_chart.PH, name='PH',
                     line={"color": "rgb(0, 147, 0)", "dash": "dot", "shape": "linear", "width": 2},
-                    hoverinfo='none')
+                    hoverinfo='none', xaxis='x10', yaxis='y10')
 
     PL = go.Scatter(x=needed_chart.Date_Time, y=needed_chart.PL, name='PL',
                     line={"color": "rgb(189, 103, 117)", "dash": "dot"},
-                    yaxis= "y", hoverinfo='none')
+                    hoverinfo='none', xaxis='x10', yaxis='y10')
 
     PC = go.Scatter(x=needed_chart.Date_Time, y=needed_chart.PC, name='PC',
                     line={"color": "rgb(120, 75, 140)", "dash": "dash"},
-                    yaxis= "y", hoverinfo='none')
+                    hoverinfo='none', xaxis='x10', yaxis='y10')
 
-    Vol = dict(x=needed_chart.Date_Time, y=needed_chart.Vol, type='bar', yaxis='y2',
-               marker= {"color": "rgb(119, 123, 227)"}, name='Vol')
+    Vol = dict(x=needed_chart.Date_Time, y=needed_chart.Vol, type='bar',
+               marker={"color": "rgb(119, 123, 227)"}, name='Vol', xaxis='x10', yaxis='y1')
 
-    #open_time_marker = needed_chart.loc[needed_chart.Date_Time.apply(
+    daily_Vol = dict(x=daily_df.Date_Time, y=daily_df.Vol, type='bar',
+                     marker={"color": "rgb(119, 123, 227)"},
+                     name='daily_Vol', xaxis='x1', yaxis='y5')
+
+    # open_time_marker = needed_chart.loc[needed_chart.Date_Time.apply(
     #    lambda x: x.time()) == dt.time(9, 30), "Date_Time"]
 
     set_of_dates = set(needed_chart.Date_Time.apply(lambda x: x.date()))
 
     open_time_marker = [dt.datetime(i.year, i.month, i.day, 9, 30) for i in set_of_dates]
 
-    #close_time_marker = needed_chart.loc[needed_chart.Date_Time.apply(
+    # close_time_marker = needed_chart.loc[needed_chart.Date_Time.apply(
     #    lambda x: x.time()) == dt.time(16, 0), "Date_Time"]
 
     close_time_marker = [dt.datetime(i.year, i.month, i.day, 16, 0) for i in set_of_dates]
@@ -374,113 +399,120 @@ def make_main_chart(needed_chart, drawing_trades, spy_needed_chart):
                                       max(needed_chart.High.max(), needed_chart.PH.max())]
 
     open_time_line = go.Line(x=[open_time_marker, open_time_marker],
-                                y=y_coordinates_open_close_lines, xaxis="x", yaxis='y')
+                             y=y_coordinates_open_close_lines, xaxis="x", yaxis='y')
 
-    data = [chart_1m, buy_trace, sell_trace, PH, PL, PC, Vol, spy_chart_candlestick, chart_5m]#, open_time_line]
+    data = [chart_1m, buy_trace, sell_trace, PH, PL, PC, Vol, spy_chart_candlestick, chart_5m,
+            daily_chart, spy_daily_chart, daily_Vol]
 
     layout = {
-      'title': f'{gap(needed_chart)}%   {needed_chart.Date_Time.iloc[0].strftime("%Y-%m-%d")}\
+        'title': f'{gap(needed_chart)}%   {needed_chart.Date_Time.iloc[0].strftime("%Y-%m-%d")}\
       {drawing_trades.Ticker[0]}\
-   Gross: {drawing_trades.Gross.sum()}   Vol: {int(drawing_trades.Qty.apply(abs).sum())}   Net: {round(drawing_trades.Net.sum())}',
-      "autosize": True,
-      "bargap": 0.54,
-      "xaxis": {
-        "anchor": "y2",
-        "autorange": True,
-        "domain": [0, 1],
-        "range": ["2018-08-06 05:17:30", "2018-08-06 19:47:30"],
-        "rangeslider": {
-          "autorange": True,
-            "visible": False,
-          #"range": ["2018-08-06 06:00:00", "2018-08-06 16:20:00"],
-          #"range": ["2018-08-06 05:17:30", "2018-08-06 19:47:30"],
-          #"yaxis2": {"rangemode": "match"}
-        },
-        "type": "date"
-      },
-        "xaxis3":{
-            "anchor": "y",
-            "autorange": True,
-            "domain": [0, 0.49],
-            #"range": ["2018-08-06 05:17:30", "2018-08-06 19:47:30"],
+   Gross: {drawing_trades.Gross.sum()}   Vol: {int(drawing_trades.Qty.apply(abs).sum())}   \
+   Net: {round(drawing_trades.Net.sum())}',
+        "autosize": True,
+        # "height" : 1300,
+        # "bargap": 0.54,
+        "xaxis10": {
+            "anchor": 'free',
+            # "autorange": True,
+            "range": [buy_executions.Date_Time.iloc[0].replace(hour=6, minute=30),
+                      buy_executions.Date_Time.iloc[0].replace(hour=16, minute=15)],
+            "domain": [0, 0.65],
             "rangeslider": {
-                "visible" : False,
                 "autorange": True,
-              #"range": ["2018-08-06 05:17:30", "2018-08-06 19:47:30"],
-        }
-      },
+                "visible": False,
+            },
+            "type": "date"
+        },
+        "xaxis1": {
+            "anchor": "free",
+            # "autorange": True,
+            "range": [spy_daily.Date_Time.iloc[0] - dt.timedelta(days=365),
+                      spy_daily.Date_Time.iloc[0]],
+            "domain": [0.65, 1],
+            "rangeslider": {
+                "visible": False}
+        },
+        "yaxis10": {
+            "anchor": "x10",
+            "autorange": True,
+            "domain": [0.17, 0.7],
+            # "overlaying": False,
+            "position": 0,
+            # "range": [18.02, 23.62],
+            "type": "linear"
+        },
+        "yaxis1": {
+            "anchor": "x10",
+            "autorange": True,
+            "domain": [0, 0.16],
+            "type": "linear"
+        },
+        "yaxis2": {
+            "anchor": "x10",
+            "autorange": True,
+            "domain": [0.71, 1],
+            "type": "linear"
+        },
+        "yaxis6": {
+            "anchor": "x1",
+            "autorange": True,
+            "domain": [0.17, 0.7],
+            # "overlaying": False,
+            "position": 0,
+            # "range": [18.02, 23.62],
+            "type": "linear"
+        },
+        "yaxis5": {
+            "anchor": "x1",
+            "autorange": True,
+            "domain": [0, 0.16],
+            "type": "linear"
+        },
+        "yaxis7": {
+            "anchor": "x1",
+            "autorange": True,
+            "domain": [0.71, 1],
+            "type": "linear"
+        },
 
-      "yaxis": {
-        "anchor": "free",
-        "autorange": True,
-        "domain": [0.17, 0.7],
-        #"overlaying": False,
-        "position": 0,
-        "range": [18.02, 23.62],
-        "type": "linear"
-      },
-      "yaxis2": {
-        "anchor": "x",
-        "autorange": True,
-        "domain": [0, 0.16],
-        "range": [0, 254736.842105],
-        "type": "linear"
-      },
-        "yaxis3": {
-        "anchor": "x",
-        "autorange": True,
-        "domain": [0.71, 1],
-        #"range": [0, 254736.842105],
-        "type": "linear"
-      },
-        "yaxis4": {
-        "anchor": "free",
-        "autorange": True,
-        "domain": [0.17, 0.8],
-        #"overlaying": False,
-        "position": 0,
-        #"range": [18.02, 23.62],
-        "type": "linear",
-            "layer": "below traces",
-            "side": "right"
-       },
-         'shapes': [*[
-        {
-            'type': 'line',
-            # x-reference is assigned to the x-values
-            'xref': 'x',
-            # y-reference is assigned to the plot paper [0,1]
-            #'yref': 'paper',
-            'x0': open_time_marker[i],
-            'y0': y_coordinates_open_close_lines[0],
-            'x1': open_time_marker[i],
-            'y1': y_coordinates_open_close_lines[1],
-            #'fillcolor': '#d3d3d3',
-            'opacity': 0.2,
-            'line': {
-                'width' : 1,
-                'dash' : 'dot'
-            }
-        } for i in range(len(open_time_marker))
-       ],
-        *[{
-            'type': 'line',
-            # x-reference is assigned to the x-values
-            'xref': 'x',
-            # y-reference is assigned to the plot paper [0,1]
-            #'yref': 'paper',
-            'x0': close_time_marker[i],
-            'y0': y_coordinates_open_close_lines[0],
-            'x1': close_time_marker[i],
-            'y1': y_coordinates_open_close_lines[1],
-            #'fillcolor': '#d3d3d3',
-            'opacity': 0.2,
-            'line': {
-                'width' : 1,
-                'dash' : 'dot'
-            }
-        } for i in range(len(open_time_marker))
-        ]
+        'shapes': [*[
+            {
+                'type': 'line',
+                # x-reference is assigned to the x-values
+                'xref': 'x',
+                # y-reference is assigned to the plot paper [0,1]
+                # 'yref': 'paper',
+                'x0': open_time_marker[i],
+                'y0': y_coordinates_open_close_lines[0],
+                'x1': open_time_marker[i],
+                'y1': y_coordinates_open_close_lines[1],
+                # 'fillcolor': '#d3d3d3',
+                'opacity': 0.2,
+                'line': {
+                    'width': 1,
+                    'dash': 'dot'
+                }
+            } for i in range(len(open_time_marker))
+        ],
+                   *[{
+                       'type': 'line',
+                       # x-reference is assigned to the x-values
+                       'xref': 'x',
+                       # y-reference is assigned to the plot paper [0,1]
+                       # 'yref': 'paper',
+                       'x0': close_time_marker[i],
+                       'y0': y_coordinates_open_close_lines[0],
+                       'x1': close_time_marker[i],
+                       'y1': y_coordinates_open_close_lines[1],
+                       # 'fillcolor': '#d3d3d3',
+                       'opacity': 0.2,
+                       'line': {
+                           'width': 1,
+                           'dash': 'dot'
+                       }
+                   } for i in range(len(open_time_marker))
+                   ]
                    ]
     }
     filename = r'E:\Trading_diary\Drawn_charts' + f'\{buy_executions.Date_Time.iloc[0].strftime("%Y-%m-%d")}_{buy_executions.Ticker[0]}.html'
@@ -488,65 +520,53 @@ def make_main_chart(needed_chart, drawing_trades, spy_needed_chart):
     return filename
 
 
-if __name__ == '__main__':
+if __name__ == '__main__1':
     # In[295]:
-
 
     trades_file = r'C:/Users/User/Downloads/07060212-2018-08-06-to-2018-08-09-detailed.xls'
     chart_file = r'C:\Users\User\Documents\ARLO_06.08.18.csv'
     spy_file = r'C:\Users\User\Documents\SPY_example.csv'
 
-    #trades_file = r'C:\Users\Kir\Documents\07060212-2018-08-06-to-2018-08-09-detailed.xlsx'
-    #chart_file = r'C:\Users\User\Documents\Old_comp\Chart 2016-07-16-09-54.csv'
-
+    # trades_file = r'C:\Users\Kir\Documents\07060212-2018-08-06-to-2018-08-09-detailed.xlsx'
+    # chart_file = r'C:\Users\User\Documents\Old_comp\Chart 2016-07-16-09-54.csv'
 
     # In[296]:
-
 
     date = '8/6/2018'
     ticker = 'ARLO'
 
-    #trades_file = r'C:/Users/User/Downloads/07060212-2018-08-06-to-2018-08-09-detailed.xls'
-    #chart_file = r'C:\Users\User\Documents\Old_comp\Chart 2016-07-16-09-54.csv'
+    # trades_file = r'C:/Users/User/Downloads/07060212-2018-08-06-to-2018-08-09-detailed.xls'
+    # chart_file = r'C:\Users\User\Documents\Old_comp\Chart 2016-07-16-09-54.csv'
 
     opened_file = open_excel(trades_file)
     date_tickers_exec = preprocessing_trades(opened_file)
 
     # In[297]:
 
-
     drawing_trades = date_tickers_exec[date][ticker]
-
 
     # In[298]:
 
-
     chart_df = create_chart_df(chart_file)
-
 
     # In[299]:
 
-
     spy_chart = create_chart_df(r"C:\Users\User\Documents\SPY_example_1m.csv")
-
 
     # In[300]:
 
-
     date_of_trade = drawing_trades.Date_Time[0]
     needed_chart = chart_df[(chart_df.Date_Time.apply(lambda x: x.date()) >= date_of_trade.date()) &
-          (chart_df.Date_Time.apply(lambda x: x.date()) < date_of_trade.date().replace(day=date_of_trade.day+1))]
-
+                            (chart_df.Date_Time.apply(lambda x: x.date()) < date_of_trade.date().replace(
+                                day=date_of_trade.day + 1))]
 
     # In[301]:
 
-
     spy_needed_chart = spy_chart[(spy_chart.Date_Time.apply(lambda x: x.date()) >= date_of_trade.date()) &
-          (spy_chart.Date_Time.apply(lambda x: x.date()) < date_of_trade.date().replace(day=date_of_trade.day+1))]
-
+                                 (spy_chart.Date_Time.apply(lambda x: x.date()) < date_of_trade.date().replace(
+                                     day=date_of_trade.day + 1))]
 
     # In[302]:
-
 
     make_main_chart(needed_chart, drawing_trades, spy_needed_chart)
 
@@ -555,12 +575,12 @@ if __name__ == '__main__':
 
 
 def candle_time(series, timeframe):
-    #print(series, type(series))
+    # print(series, type(series))
     minute = series.minute - series.minute % timeframe
     return dt.datetime(series.year, series.month, series.day, series.hour, minute)
 
-    #for i in len(dataframe):
+    # for i in len(dataframe):
     #    dataframe.iloc[i, 3]
-    #dataframe.insert(0, 'Candle_Time', )
+    # dataframe.insert(0, 'Candle_Time', )
 
 

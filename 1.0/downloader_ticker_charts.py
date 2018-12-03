@@ -69,10 +69,10 @@ def download_chart_of_ticker(ticker, date):
         file_name = path_dir + f'{ticker}_{date:%Y-%m-%d}_{now - dt.timedelta(days=1):%Y-%m-%d}.csv'
 
     kb.write(file_name)
-    
-    
+
+
     kb.send('enter')
-    
+
     sleep(15)
     kb.send('esc')
     time.sleep(0.1)
