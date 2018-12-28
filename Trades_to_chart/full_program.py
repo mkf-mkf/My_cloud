@@ -112,7 +112,7 @@ def append_df_to_excel(filename, df, sheet_name='Sheet1', startrow=None,
 # In[33]:
 
 
-def looking_for_chart(ticker, start_day, end_day=None):
+def looking_for_chart(ticker, start_day, end_day=None, timeframe=1):
     if not end_day:
         end_day = start_day
 
@@ -125,20 +125,23 @@ def looking_for_chart(ticker, start_day, end_day=None):
     except FileNotFoundError:
         return None
 
-    file_name_pattern = re.compile(r'[A-Z]+_(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2}).csv')
+    file_name_pattern = re.compile(r'[A-Z]+_(%s)_(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2}).csv'%timeframe)
     existing_charts = {}
 
     for file in files:
         start_end = []
         parser = re.search(file_name_pattern, file)
-        start_end.extend([dt.datetime.strptime(parser[1], esignal_date_format),
-                         dt.datetime.strptime(parser[2], esignal_date_format)])
+        if not parser:
+            continue
+
+        start_end.extend([dt.datetime.strptime(parser[2], esignal_date_format),
+                         dt.datetime.strptime(parser[3], esignal_date_format)])
 
         existing_charts[file] = start_end
 
     for file_name, [start_file, end_file] in existing_charts.items():
 
-        if start_file + dt.timedelta(days=1) <= start_day <= end_day <= end_file:
+        if start_file <= start_day <= end_day <= end_file:
             return file_name
 
     return None
@@ -152,33 +155,16 @@ propreports_file_date_format = '%Y-%m-%d'
 esignal_date_format = '%Y-%m-%d'
 esignal_charts_path = r'E:\Trading_diary\Esignal_charts'
 detailed_folder = r'E:\Trading_diary\Detailed'
-login = '07060212'
-password = 'parolo12'
+login = '07060017'
+password = 'elisabet777'
 
-def main():
-    startDate = '2018-07-05'
+def main1():
+    startDate = '2018-12-21'
     dt_startDate = dt.datetime.strptime(startDate, propreports_file_date_format)
-    endDate = '2018-07-06'
+    endDate = '2018-12-24'
     dt_endDate = dt.datetime.strptime(endDate, propreports_file_date_format)
 
     # скачиваем файлы статистики
-    """
-    if dt_endDate - dt_startDate > 7:
-        dt_startDates = [dt_startDate]
-        dt_endDates = [dt_startDate + dt.timedelta(days=6)]
-        
-        while dt_startDates[-1] + dt.timedelta(days=7) <= dt_endDate:
-            dt_startDates.append(dt_startDates[-1] + dt.timedelta(days=7))
-            
-            if dt_startDates[-1] + dt.timedelta(days=6) <= dt_endDate:
-                dt_endDates.append(dt_startDates[-1] + dt.timedelta(days=6))
-            
-            else:
-                dt_endDates.append(dt_endDate)
-            
-    for start, end in zip(dt_startDates, dt_endDates): 
-        saver(start, end)
-    """
     downloaded_detailed = saver(login, password, dt_startDate, dt_endDate)
 
     # парсим файлы статистики
@@ -207,20 +193,28 @@ def main():
         needed_spy_daily_chart = spy_daily_df.loc[spy_daily_df.Date_Time <= dt_date]
 
         for ticker in main_dict[date]:
-            ticker_file_name = looking_for_chart(ticker, dt_date)
+            ticker_file_name = looking_for_chart(ticker, dt_date, timeframe=1)
 
-#TODO: добавить дейли на график
             # проверить, есть ли данный график в скачанных экселях, если нет, то скачать
             if not ticker_file_name:
-                download_chart_of_ticker(ticker, dt_date, 'd')
+                ticker_daily_file = download_chart_of_ticker(ticker, dt_date, 'd')
                 ticker_file_name = download_chart_of_ticker(ticker, dt_date, 1)
+
+            else:
+                ticker_daily_file = f'{ticker}_latest_daily.csv'
                 #pdb.set_trace()
 
             stock_df = ttc.create_chart_df(os.path.join(esignal_charts_path, ticker, ticker_file_name))
             needed_stock_chart = ttc.chart_with_needed_dates(stock_df, dt_date)
+
+            stock_daily_df = ttc.create_chart_df(os.path.join(esignal_charts_path, ticker, ticker_daily_file))
+            needed_stock_daily_chart = stock_daily_df.loc[stock_daily_df.Date_Time <= dt_date]
             execution = main_dict[date][ticker]
-            path_to_created_chart = ttc.make_main_chart(needed_stock_chart,
-                                                        execution, needed_spy_chart)
+            path_to_created_chart = ttc.make_main_chart(needed_chart=needed_stock_chart,
+                                                        daily_df=needed_stock_daily_chart,
+                                                        drawing_trades=execution,
+                                                        spy_needed_chart=needed_spy_chart,
+                                                        spy_daily=needed_spy_daily_chart)
 
             line = pd.DataFrame([{'Date': date, 'Stock_Opt': 'stock', 'Ticker': ticker,
                               'Start_time': execution.Date_Time.iloc[0].time(),
@@ -244,5 +238,5 @@ def main():
 # In[36]:
 
 
-main()
+main1()
 

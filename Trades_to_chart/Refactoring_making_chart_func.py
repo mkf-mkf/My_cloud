@@ -1,88 +1,26 @@
+
 # coding: utf-8
 
-# Trades
-# + Адрес хранилища данных: points
-# Получение данных
-# Адрес хранилища данных: данные
-# + download data
-# + read file
-# Получение словаря датафремов трейдов
-# + Данные: словарь датафреймов
-# + method(type): type
-# Преобразования к таймфрему оси чарта
-# + Датафрейм: Агрегированный датафрейм по таймфрему
-# + Агрегация экзекьюшинов с разницей времени < 5s
-# + Агрегация по таймфреймам
-# Рисование экзекьюшина на чарте
-# + Dataframe: chart
-# + plotly
-# главная программа
-# "Перенесение трейдов на график"
-# главная программа(передаем источник трейдов, источник таблиц для графиков, дата=последний рабочий день):
-#     обработка трейдов(источник трейдов, дата):
-#     датафрейм графика = обработка источника таблиц графика(источник таблиц графиков, дата=последний рабочий день)
-#     датафрейм трейдов = обработка источника хранилища (источник трейдов)
-#     рисуем график стака с точками входа(датафрейм графика, датафрейм трейдов)
-# Рисование чарта
-# Рисование трейдов
-# Candlestick
-# Хранилище данных: chart object
-# подготовка данных для графика
-# + адрес хранилища данных: строка
-# Получение данных
-# + адресс файла (строка): содержимое файла
-# + чтение данных
-# Подготовка датафрейма
-# Объект данных: строка
-# + csv to Dataframe
-# + Convert Data
-# + Prepare columns
-# Выбор времени
-# Датафрейм : рабочий датафрейм
-# + обрезаем датафрейм до нужных данных
-# Получение таймфрейма
-# + Dataframe : Dataframe
-# + трансформация датафрейма
-#    в нужный таймфрейм
-# Plotting
-# + Dataframe: Plott
-# ploly candlestick
-# Чарт
-#
+# In[24]:
 
-# деф главная программа(передаем источник трейдов, источник таблиц для графиков, дата=последний рабочий день):
-#     обработка трейдов(источник трейдов, дата):
-#     датафрейм графика = обработка источника таблиц графика(источник таблиц графиков, дата=последний рабочий день)
-#     датафрейм трейдов = обработка источника хранилища (источник трейдов)
-#     рисуем график стака с точками входа(датафрейм графика, датафрейм трейдов)
-
-# In[1]:
-
-
+import os
+import datetime as dt
 import pandas as pd
 import re
-import plotly
-import plotly.plotly as py
-import plotly.graph_objs as go
-import datetime as dt
-import copy
-import win32com.client
-import time
 from xlrd.compdoc import CompDocError
-
-# plotly.tools.set_credentials_file(username='mkf', api_key='crwJntc1jJsAdaHKiDPL')
-
-
-# In[2]:
-
-
+import plotly.graph_objs as go
 from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
-from plotly import tools
-
 init_notebook_mode(connected=True)
 
+# In[31]:
 
-# In[3]:
+
+#ticker = None
+#trade_date = None
+
+###############################################
+class RecievedDataError(Exception):
+    pass
 
 
 def fix_excel(trades_file):
@@ -112,15 +50,13 @@ def open_excel(path):
 
 # In[280]:
 
-# TODO: Исправить ошибку, когда есть пустой датафрейм
+
 def normalise_formats(storage_of_executions):
     """Создание датафрейма Детейлс файла с нужными форматами и колонками"""
     important_columns = ['Order Id', 'Time', 'B/S', 'Qty', 'Price', 'Gross', 'Net', 'Route']
-    copy_storage_of_executions = copy.deepcopy(storage_of_executions)
+    copy_storage_of_executions = storage_of_executions.copy()
     for date, tickers in storage_of_executions.items():
         for ticker, executions in tickers.items():
-            if executions.empty:
-                continue
             new_df = executions[important_columns]
             new_df.rename(columns={'B/S': 'B_S', 'Order Id': 'Order_Id'}, inplace=True)
             new_df.insert(0, 'Date_Time', pd.to_datetime((date + ' ' + new_df['Time']), dayfirst=False))
@@ -173,9 +109,6 @@ def group_by_order_final(execution):
     new_group_by_orger = new_group_by_orger.append(group_by_order(one_group))
     new_group_by_orger.insert(6, 'Pos_Size', new_group_by_orger['Qty'].cumsum().apply(int))
     return new_group_by_orger
-
-
-# In[294]:
 
 
 def preprocessing_trades(storage_of_executions):
@@ -279,13 +212,19 @@ def chart_with_needed_dates(chart_df, date_of_trade):
     return chart_df.loc[(chart_df.Date_Time >= needed_start_dt) &
                         (chart_df.Date_Time <= needed_end_dt)]
 
-# In[318]:
+##################################################################
 
 
-def make_main_chart(needed_chart, daily_df, drawing_trades, spy_needed_chart, spy_daily):
+def buy_sell_executions(drawing_trades):
     buy_executions = drawing_trades.loc[drawing_trades['B_S'].isin(['B', 'C'])]
     sell_executions = drawing_trades.loc[drawing_trades['B_S'].isin(['S', 'T'])]
+    return {'buy_executions' : buy_executions, 'sell_executions' : sell_executions}
 
+
+# In[32]:
+
+
+def preparation_chart_traces(needed_chart, daily_df, spy_needed_chart, spy_daily, ticker):
     decreasing = {"fillcolor": "rgb(227, 14, 0)",
                   "line": {
                       "color": "rgb(8, 7, 7)",
@@ -301,7 +240,7 @@ def make_main_chart(needed_chart, daily_df, drawing_trades, spy_needed_chart, sp
                               high=needed_chart.High,
                               low=needed_chart.Low,
                               close=needed_chart.Close,
-                              name=f"{buy_executions.Ticker[0]}_1m",
+                              name=f"{ticker}_1m",
                               decreasing=decreasing,
                               increasing=increasing,
                               hoverinfo="x+y",
@@ -315,7 +254,7 @@ def make_main_chart(needed_chart, daily_df, drawing_trades, spy_needed_chart, sp
                               high=chart_resampled_to5m.High,
                               low=chart_resampled_to5m.Low,
                               close=chart_resampled_to5m.Close,
-                              name=f"{buy_executions.Ticker[0]}_5m",
+                              name=f"{ticker}_5m",
                               decreasing=decreasing,
                               increasing=increasing,
                               hoverinfo="x+y", visible="legendonly", yaxis='y10',
@@ -326,7 +265,7 @@ def make_main_chart(needed_chart, daily_df, drawing_trades, spy_needed_chart, sp
                                  high=daily_df.High,
                                  low=daily_df.Low,
                                  close=daily_df.Close,
-                                 name=f"{buy_executions.Ticker[0]}_daily",
+                                 name=f"{ticker}_daily",
                                  decreasing=decreasing,
                                  increasing=increasing,
                                  yaxis='y6',
@@ -353,22 +292,6 @@ def make_main_chart(needed_chart, daily_df, drawing_trades, spy_needed_chart, sp
                                            increasing=increasing,
                                            hoverinfo="x+y", xaxis='x10', yaxis='y2')
 
-    text_lambda = lambda x: [f'{i.B_S}: {int(i.Qty)}, Pos_Size: {i.Pos_Size}' for i in x.itertuples()]
-
-    buy_trace = go.Scatter(x=buy_executions.Date_Time, y=buy_executions.Price, mode='markers', name='Buy',
-                           marker={"color": "rgb(103, 228, 97)",
-                                   "line": {"width": 1},
-                                   "size": 8},
-                           text=text_lambda(buy_executions),
-                           hoverinfo="y+text", xaxis='x10', yaxis='y10')
-
-    sell_trace = go.Scatter(x=sell_executions.Date_Time, y=sell_executions.Price, mode='markers', name='Sell',
-                            marker={
-                                "color": "rgb(235, 180, 12)",
-                                "line": {"width": 1},
-                                "size": 8},
-                            text=text_lambda(sell_executions),
-                            hoverinfo="y+text", xaxis='x10', yaxis='y10')
 
     PH = go.Scatter(x=needed_chart.Date_Time, y=needed_chart.PH, name='PH',
                     line={"color": "rgb(0, 147, 0)", "dash": "dot", "shape": "linear", "width": 2},
@@ -389,41 +312,109 @@ def make_main_chart(needed_chart, daily_df, drawing_trades, spy_needed_chart, sp
                      marker={"color": "rgb(119, 123, 227)"},
                      name='daily_Vol', xaxis='x1', yaxis='y5')
 
-    # open_time_marker = needed_chart.loc[needed_chart.Date_Time.apply(
-    #    lambda x: x.time()) == dt.time(9, 30), "Date_Time"]
+    return [chart_1m, PH, PL, PC, Vol, spy_chart_candlestick, 
+            chart_5m, daily_chart, spy_daily_chart, daily_Vol]
 
-    set_of_dates = set(needed_chart.Date_Time.apply(lambda x: x.date()))
 
-    open_time_marker = [dt.datetime(i.year, i.month, i.day, 9, 30) for i in set_of_dates]
+# In[29]:
 
-    # close_time_marker = needed_chart.loc[needed_chart.Date_Time.apply(
-    #    lambda x: x.time()) == dt.time(16, 0), "Date_Time"]
 
-    close_time_marker = [dt.datetime(i.year, i.month, i.day, 16, 0) for i in set_of_dates]
-
+def open_close_coordinates(needed_chart):
     y_coordinates_open_close_lines = [min(needed_chart.Low.min(), needed_chart.PL.min()),
                                       max(needed_chart.High.max(), needed_chart.PH.max())]
+    
+    set_of_dates = set(needed_chart.Date_Time.apply(lambda x: x.date()))
+    
+    open_time_marker = [dt.datetime(i.year, i.month, i.day, 9, 30) for i in set_of_dates]
+    close_time_marker = [dt.datetime(i.year, i.month, i.day, 16, 0) for i in set_of_dates]
+    
+    return {'open_time_marker' : open_time_marker, 'close_time_marker' : close_time_marker,
+            'y_coordinates_open_close_lines' : y_coordinates_open_close_lines}
 
-    #open_time_line = go.Line(x=[open_time_marker, open_time_marker],
-    #                         y=y_coordinates_open_close_lines, xaxis="x", yaxis='y')
 
-    data = [chart_1m, buy_trace, sell_trace, PH, PL, PC, Vol, spy_chart_candlestick, chart_5m,
-            daily_chart, spy_daily_chart, daily_Vol]
+# In[33]:
+symbols = ["circle-dot", "square-dot", "diamond-dot", "cross-dot",
+           "x-dot", "star-dot", "hexagram-dot", "star-square-dot",
+          "star-diamond-dot", "diamond-tall-dot", "hexagon-dot"]
+
+
+def preparation_trades_traces(name, drawing_trades, symbol='circle-dot'):
+    executions = buy_sell_executions(drawing_trades)
+
+    text_lambda = lambda x: [f'{i.B_S}: {int(i.Qty)}, Pos_Size: {i.Pos_Size}' for i in x.itertuples()]
+
+    buy_trace = go.Scatter(x=executions['buy_executions'].Date_Time, y=executions['buy_executions'].Price,
+                           mode='markers', name=f'Buy {name}',
+                           marker={"color": "rgb(103, 228, 97)",
+                                   "line": {"width": 1},
+                                   "size": 8,
+                                   'symbol':symbol},
+                           text=text_lambda(executions['buy_executions']),
+                           hoverinfo="y+text", visible="legendonly",
+                           xaxis='x10', yaxis='y10')
+
+    sell_trace = go.Scatter(x=executions['sell_executions'].Date_Time, y=executions['sell_executions'].Price,
+                            mode='markers', name=f'Sell {name}',
+                            marker={
+                                "color": "rgb(235, 180, 12)",
+                                "line": {"width": 1},
+                                "size": 8,
+                                'symbol':symbol},
+                            text=text_lambda(executions['sell_executions']),
+                            hoverinfo="y+text", visible="legendonly",
+                            xaxis='x10', yaxis='y10')
+
+    return [buy_trace, sell_trace]
+
+
+# In[30]:
+def find_max_net_key(df_dict):
+    max_key = None
+    max_net = None
+    for key in df_dict:
+        if not max_key or max_net < df_dict[key].Net.sum():
+            max_key = key
+            max_net = df_dict[key].Net.sum()
+    return max_key
+
+
+def make_layout(date, needed_chart, drawing_trades=None, exec_dict=None):
+    open_close_markers = open_close_coordinates(needed_chart)
+    try:
+        chart_info = f'{gap(needed_chart)}%   {needed_chart.Date_Time.iloc[0].strftime("%Y-%m-%d")}'
+    except:
+        print(needed_chart)
+        raise Exception
+
+    if not drawing_trades and not exec_dict:
+        raise RecievedDataError('Не получено датафрейма или словаря экзекьюшинов')
+
+    elif drawing_trades:
+        ticker = drawing_trades.Ticker[0]
+        gross = drawing_trades.Gross.sum()
+        vol = int(drawing_trades.Qty.apply(abs).sum())
+        net = round(drawing_trades.Net.sum())
+
+    elif exec_dict:
+        max_net_key = find_max_net_key(exec_dict)
+
+        ticker = exec_dict[max_net_key].Ticker[0]
+        gross = exec_dict[max_net_key].Gross.sum()
+        vol = int(exec_dict[max_net_key].Qty.apply(abs).sum())
+        net = round(exec_dict[max_net_key].Net.sum())
+
+    title = chart_info + ' '*8 + ticker + ' '*8 + f'Gross: {gross}    Vol: {vol}      Net: {net}'
 
     layout = {
-        'title': f'{gap(needed_chart)}%   {needed_chart.Date_Time.iloc[0].strftime("%Y-%m-%d")}\
-      {drawing_trades.Ticker[0]}\
-   Gross: {drawing_trades.Gross.sum()}   Vol: {int(drawing_trades.Qty.apply(abs).sum())}   \
-   Net: {round(drawing_trades.Net.sum())}',
-        "hovermode"	:	"closest",
+        'title': title,
         "autosize": True,
         # "height" : 1300,
         # "bargap": 0.54,
         "xaxis10": {
             "anchor": 'free',
             # "autorange": True,
-            "range": [buy_executions.Date_Time.iloc[0].replace(hour=6, minute=30),
-                      buy_executions.Date_Time.iloc[0].replace(hour=16, minute=15)],
+            "range": [date.replace(hour=6, minute=30),
+                      date.replace(hour=16, minute=15)],
             "domain": [0, 0.65],
             "rangeslider": {
                 "autorange": True,
@@ -434,8 +425,8 @@ def make_main_chart(needed_chart, daily_df, drawing_trades, spy_needed_chart, sp
         "xaxis1": {
             "anchor": "free",
             # "autorange": True,
-            "range": [spy_daily.Date_Time.iloc[0] - dt.timedelta(days=120),
-                      spy_daily.Date_Time.iloc[0]],
+            "range": [date - dt.timedelta(days=365),
+                      date],
             "domain": [0.65, 1],
             "rangeslider": {
                 "visible": False}
@@ -490,17 +481,17 @@ def make_main_chart(needed_chart, daily_df, drawing_trades, spy_needed_chart, sp
                 'xref': 'x',
                 # y-reference is assigned to the plot paper [0,1]
                 # 'yref': 'paper',
-                'x0': open_time_marker[i],
-                'y0': y_coordinates_open_close_lines[0],
-                'x1': open_time_marker[i],
-                'y1': y_coordinates_open_close_lines[1],
+                'x0': open_close_markers['open_time_marker'][i],
+                'y0': open_close_markers['y_coordinates_open_close_lines'][0],
+                'x1': open_close_markers['open_time_marker'][i],
+                'y1': open_close_markers['y_coordinates_open_close_lines'][1],
                 # 'fillcolor': '#d3d3d3',
                 'opacity': 0.2,
                 'line': {
                     'width': 1,
                     'dash': 'dot'
                 }
-            } for i in range(len(open_time_marker))
+            } for i in range(len(open_close_markers['open_time_marker']))
         ],
                    *[{
                        'type': 'line',
@@ -508,86 +499,64 @@ def make_main_chart(needed_chart, daily_df, drawing_trades, spy_needed_chart, sp
                        'xref': 'x',
                        # y-reference is assigned to the plot paper [0,1]
                        # 'yref': 'paper',
-                       'x0': close_time_marker[i],
-                       'y0': y_coordinates_open_close_lines[0],
-                       'x1': close_time_marker[i],
-                       'y1': y_coordinates_open_close_lines[1],
+                       'x0': open_close_markers['open_time_marker'][i],
+                       'y0': open_close_markers['y_coordinates_open_close_lines'][0],
+                       'x1': open_close_markers['open_time_marker'][i],
+                       'y1': open_close_markers['y_coordinates_open_close_lines'][1],
                        # 'fillcolor': '#d3d3d3',
                        'opacity': 0.2,
                        'line': {
                            'width': 1,
                            'dash': 'dot'
                        }
-                   } for i in range(len(open_time_marker))
+                   } for i in range(len(open_close_markers['open_time_marker']))
                    ]
                    ]
     }
-    filename = r'E:\Trading_diary\Drawn_charts' + f'\{buy_executions.Date_Time.iloc[0].strftime("%Y-%m-%d")}_{buy_executions.Ticker[0]}.html'
-    plot(dict(data=data, layout=layout), auto_open=False, filename=filename)
-    return filename
+
+    return layout
 
 
-if __name__ == '__main__1':
-    # In[295]:
+# In[ ]:
+"""
 
-    trades_file = r'C:/Users/User/Downloads/07060212-2018-08-06-to-2018-08-09-detailed.xls'
-    chart_file = r'C:\Users\User\Documents\ARLO_06.08.18.csv'
-    spy_file = r'C:\Users\User\Documents\SPY_example.csv'
-
-    # trades_file = r'C:\Users\Kir\Documents\07060212-2018-08-06-to-2018-08-09-detailed.xlsx'
-    # chart_file = r'C:\Users\User\Documents\Old_comp\Chart 2016-07-16-09-54.csv'
-
-    # In[296]:
-
-    date = '8/6/2018'
-    ticker = 'ARLO'
-
-    # trades_file = r'C:/Users/User/Downloads/07060212-2018-08-06-to-2018-08-09-detailed.xls'
-    # chart_file = r'C:\Users\User\Documents\Old_comp\Chart 2016-07-16-09-54.csv'
-
-    opened_file = open_excel(trades_file)
-    date_tickers_exec = preprocessing_trades(opened_file)
-
-    # In[297]:
-
-    drawing_trades = date_tickers_exec[date][ticker]
-
-    # In[298]:
-
-    chart_df = create_chart_df(chart_file)
-
-    # In[299]:
-
-    spy_chart = create_chart_df(r"C:\Users\User\Documents\SPY_example_1m.csv")
-
-    # In[300]:
-
-    date_of_trade = drawing_trades.Date_Time[0]
-    needed_chart = chart_df[(chart_df.Date_Time.apply(lambda x: x.date()) >= date_of_trade.date()) &
-                            (chart_df.Date_Time.apply(lambda x: x.date()) < date_of_trade.date().replace(
-                                day=date_of_trade.day + 1))]
-
-    # In[301]:
-
-    spy_needed_chart = spy_chart[(spy_chart.Date_Time.apply(lambda x: x.date()) >= date_of_trade.date()) &
-                                 (spy_chart.Date_Time.apply(lambda x: x.date()) < date_of_trade.date().replace(
-                                     day=date_of_trade.day + 1))]
-
-    # In[302]:
-
-    make_main_chart(needed_chart, drawing_trades, spy_needed_chart)
+trades_traces = []
+for file in files:
+    trades_traces = [*trades_traces, *prepearing_trades_traces(file)]
 
 
 # In[ ]:
 
 
-def candle_time(series, timeframe):
-    # print(series, type(series))
-    minute = series.minute - series.minute % timeframe
-    return dt.datetime(series.year, series.month, series.day, series.hour, minute)
+data = [*preparation_trades_traces(drawing_trades), # *trades_traces,
+        *preparation_chart_traces(needed_chart, daily_df, spy_needed_chart, spy_daily)]
 
-    # for i in len(dataframe):
-    #    dataframe.iloc[i, 3]
-    # dataframe.insert(0, 'Candle_Time', )
+filename = r'E:\Trading_diary\Drawn_charts' + /
+f'\{login}_{trade_date.strftime("%Y-%m-%d")}_{ticker}_{drawing_trades.Gross.sum()}.html'
+plot(dict(data=data, layout=make_layout(needed_chart, drawing_trades)), auto_open=False, filename=filename)
+return filename
 
 
+# In[53]:
+
+
+try:
+    plot([go.Scatter(x=[1], y=[5])], filename=r'E:\Trading_diary\Drawn_charts\{login}\')
+except FileNotFoundError:
+    os.makedirs(f'E:\Trading_diary\Drawn_charts\{login}')
+    plot([go.Scatter(x=[1], y=[5])], filename=r'E:\Trading_diary\Drawn_charts\asdfasc\aafa\tmp')
+
+
+# In[54]:
+
+
+
+
+
+# In[55]:
+
+
+login=5
+os.makedirs(f'E:\Trading_diary\Drawn_charts\{login}')
+
+"""

@@ -10,7 +10,7 @@ def pause(seconds):
     while kb.is_pressed('esc') == False and k <= seconds:
         time.sleep(0.01)
         k += 0.01
-    if kb.is_pressed('esc') == True:
+    if kb.is_pressed('esc'):
         return True
 
 
@@ -21,13 +21,14 @@ def sleep(sec):
 
 def download_chart_of_ticker(ticker, date, timeframe=1):
     now = dt.datetime.now()
-    if not timeframe in ['d', 'D', 'w', 'W', 'q', 'Q', 'y', 'Y']:
-        str_date = dt.datetime.strftime(date - dt.timedelta(days=1), "%d%m%Y")
-        title_date = '2011-01-01'
+    if timeframe not in ['d', 'D', 'w', 'W', 'q', 'Q', 'y', 'Y']:
+        str_date = dt.datetime.strftime(date - dt.timedelta(days=2), "%d%m%Y")
+        title_date = f'{date:%Y-%m-%d}'
+
 
     else:
         str_date = '01012011'
-        title_date = f'{date:%Y-%m-%d}'
+        title_date = '2011-01-01'
 
     ticker = ticker.upper()
     sleep(1)
@@ -69,7 +70,7 @@ def download_chart_of_ticker(ticker, date, timeframe=1):
 
     path_dir = f'E:\\Trading_diary\\Esignal_charts\\{ticker}\\'
 
-    if os.path.exists(path_dir) == False:
+    if not os.path.exists(path_dir):
         os.makedirs(path_dir)
 
     if dt.datetime.now().time() > dt.time(16, 10):
@@ -82,8 +83,10 @@ def download_chart_of_ticker(ticker, date, timeframe=1):
 
     kb.send('enter')
 
-
-    sleep(12)
+    if timeframe not in ['d', 'D', 'w', 'W', 'q', 'Q', 'y', 'Y']:
+        sleep(12)
+    else:
+        sleep(6)
     kb.send('esc')
     time.sleep(0.1)
     kb.send('esc')
@@ -102,7 +105,6 @@ def download_chart_of_ticker(ticker, date, timeframe=1):
         time.sleep(0.1)
         kb.send('esc')
         time.sleep(0.1)
-
 
     kb.send('alt+tab')
     time.sleep(1)
